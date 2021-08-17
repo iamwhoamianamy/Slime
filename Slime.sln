@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31313.79
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Slime", "Slime.vcxproj", "{E714DC13-6406-4056-AFE7-91BB1C8DC34F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{E714DC13-6406-4056-AFE7-91BB1C8DC34F}.Debug|x64.ActiveCfg = Debug|x64
+		{E714DC13-6406-4056-AFE7-91BB1C8DC34F}.Debug|x64.Build.0 = Debug|x64
+		{E714DC13-6406-4056-AFE7-91BB1C8DC34F}.Release|x64.ActiveCfg = Release|x64
+		{E714DC13-6406-4056-AFE7-91BB1C8DC34F}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9F6D5285-FC6C-4F9E-A48E-A679A62347B6}
+	EndGlobalSection
+EndGlobal
