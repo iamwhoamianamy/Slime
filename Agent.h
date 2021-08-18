@@ -3,6 +3,8 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
+
+
 __device__ struct Vec
 {
    float x;
@@ -20,17 +22,16 @@ __device__ struct Vec
    //   return res;
    //}
 
-   __device__ Vec& operator +(const Vec& rhs) const
+   __device__ Vec operator +(const Vec& rhs) const
    {
       Vec res;
       res.x = this->x + rhs.x;
       res.y = this->y + rhs.y;
 
-
       return res;
    }
 
-   __device__ Vec& operator +=(const Vec& rhs)
+   __device__ Vec operator +=(const Vec& rhs)
    {
       this->x += rhs.x;
       this->y += rhs.y;
@@ -38,7 +39,7 @@ __device__ struct Vec
       return *this;
    }
 
-   __device__ Vec& operator -(const Vec& rhs) const
+   __device__ Vec operator -(const Vec& rhs) const
    {
       Vec res;
       res.x = this->x - rhs.x;
@@ -47,11 +48,20 @@ __device__ struct Vec
       return res;
    }
 
-   __device__ Vec& operator *(const float fac) const
+   __device__ Vec operator *(const float fac) const
    {
       Vec res;
       res.x = this->x * fac;
       res.y = this->y * fac;
+
+      return res;
+   }
+
+   __device__ Vec operator /(const float fac) const
+   {
+      Vec res;
+      res.x = this->x / fac;
+      res.y = this->y / fac;
 
       return res;
    }
@@ -64,17 +74,37 @@ __device__ struct Vec
       return *this;
    }
 
+   __device__ Vec& operator /=(const float fac)
+   {
+      if(fac != 0)
+      {
+         this->x /= fac;
+         this->y /= fac;
+      }
+      else
+      {
+         this->x /= 0;
+         this->y /= 0;
+      }
+
+      return *this;
+   }
+
    __device__ float lengthSquared() const
    {
       return this->x * this->x + this->y * this->y;
    }
 
-   __device__  Vec& normalized() const
+   __device__  Vec normalized() const
    {
       Vec res;
       float length = sqrtf(lengthSquared());
-      res.x = this->x / length;
-      res.y = this->y / length;
+
+      if(length != 0)
+      {
+         res.x = this->x / length;
+         res.y = this->y / length;
+      }
 
       return res;
    }
@@ -82,8 +112,34 @@ __device__ struct Vec
    __device__ void normalize()
    {
       float length = sqrtf(lengthSquared());
-      this->x /= length;
-      this->y /= length;
+
+      if(length != 0)
+      {
+         this->x /= length;
+         this->y /= length;
+      }
+   }
+
+   __device__ void limit(const float limitLength)
+   {
+      float length = sqrtf(lengthSquared());
+
+      if(length != 0 && length > limitLength)
+      {
+         this->x = this->x / length * limitLength;
+         this->y = this->y / length * limitLength;
+      }
+   }
+
+   __device__ static Vec direction(const Vec& from, const Vec& to)
+   {
+      Vec res = to - from;
+      return res.normalized();
+   }
+
+   __device__ static float distanceSquared(const Vec& vec1, const Vec& vec2)
+   {
+      return (vec1 - vec2).lengthSquared();
    }
 
    __device__ void setLength(const float newLength)
@@ -92,7 +148,14 @@ __device__ struct Vec
       this->x *= newLength;
       this->y *= newLength;
    }
+
+   __device__ Vec perp() const
+   {
+      return Vec(-y, x);
+   }
 };
+
+__device__ float uintTo01(const unsigned int i);
 
 __device__ class Agent
 {
@@ -126,7 +189,7 @@ public:
          if(pos.x >= width)
          {
             vel.x *= -1;
-            pos.x = width;
+            pos.x = width - 1;
          }
       }
 
@@ -140,15 +203,20 @@ public:
          if(pos.y >= height)
          {
             vel.y *= -1;
-            pos.y = height;
+            pos.y = height - 1;
          }
       }
    }
 
-   __device__ void steer(const Vec& vec, const float force)
+   __device__ void steer(const Vec& target, const float force)
    {
-      Vec temp = vec - pos;
+      Vec temp = target - pos;
       temp.setLength(force);
       vel += temp;
+   }
+
+   __device__ void wander(const unsigned int seed, const float strength)
+   {
+      vel += vel.perp() * (uintTo01(seed) * 2 - 1) * strength;
    }
 };
