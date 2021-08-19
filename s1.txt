@@ -1,0 +1,23 @@
+const int AGENTS_COUNT = 200000;
+const int DIM_X = 1920;
+const int DIM_Y = 1016;
+
+const int GRID_SIZE = DIM_X * DIM_Y;
+const int IMAGE_SIZE = DIM_X * DIM_Y * 3;
+
+const int FPS = 60;
+
+__device__ const float SPEED = 0.25f;
+__device__ const float MAX_TEMP = 1.0f;
+__device__ const float MIN_TEMP = 0.0001f;
+
+__device__ const float rad = 0.01745329251f;
+__device__ const float traceLength = 0.98f;
+__device__ const float maxVelocity = 2.0f;
+__device__ const float wanderingStrength = 0.1f;
+__device__ const float steeringForce = 100.75f;
+__device__ const float perception = 9;
+
+__device__ const int fowWidth = 11;
+
+const int threadsPerBlock = 16;

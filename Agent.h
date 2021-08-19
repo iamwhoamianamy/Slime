@@ -3,8 +3,6 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
-
-
 __device__ struct Vec
 {
    float x;
@@ -175,7 +173,7 @@ public:
    //   return res;
    //}
 
-   __device__ void updatePosition(float width, float height)
+   __device__ void updatePosition(const float width, const float height)
    {
       pos += vel;
       
