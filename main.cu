@@ -234,19 +234,19 @@ handler freeMemory();
 
 void initMemory()
 {
-   tryCudaMalloc((void**)&data.devPixels, IMAGE_SIZE * sizeof(float));
-   tryCudaMalloc((void**)&data.devInSrc, GRID_SIZE * sizeof(float));
-   tryCudaMalloc((void**)&data.devOutSrc, GRID_SIZE * sizeof(float));
-   tryCudaMalloc((void**)&data.devAgents, AGENTS_COUNT * sizeof(Agent));
-   tryCudaMalloc((void**)&data.devState, AGENTS_COUNT * sizeof(curandState));
+   handleCudaMalloc((void**)&data.devPixels, IMAGE_SIZE * sizeof(float));
+   handleCudaMalloc((void**)&data.devInSrc, GRID_SIZE * sizeof(float));
+   handleCudaMalloc((void**)&data.devOutSrc, GRID_SIZE * sizeof(float));
+   handleCudaMalloc((void**)&data.devAgents, AGENTS_COUNT * sizeof(Agent));
+   handleCudaMalloc((void**)&data.devState, AGENTS_COUNT * sizeof(curandState));
 
    initAgents<<<(AGENTS_COUNT + 3) / 4, 4>>>(data.devAgents);
-   tryKernelLaunch();
-   tryKernelSynchronize();
+   handleKernelLaunch();
+   handleKernelSynchronize();
 
    initRandomGenerator<<<(AGENTS_COUNT + 3) / 4, 4 >>>(data.devState);
-   tryKernelLaunch();
-   tryKernelSynchronize();
+   handleKernelLaunch();
+   handleKernelSynchronize();
 
    data.output_pixels = new unsigned char[IMAGE_SIZE];
 
@@ -261,19 +261,19 @@ void formHeatmap()
    for(size_t i = 0; i < REPEATS; i++)
    {
       copyHeatersKernel<<<(AGENTS_COUNT + 15) / 16, 16 >>>(data.devInSrc, data.devAgents);
-      tryKernelLaunch();
-      tryKernelSynchronize();
+      handleKernelLaunch();
+      handleKernelSynchronize();
 
       blendKernel<<<BLOCKS, THREADS >>>(data.devOutSrc, data.devInSrc);
-      tryKernelLaunch();
-      tryKernelSynchronize();
+      handleKernelLaunch();
+      handleKernelSynchronize();
 
       std::swap(data.devInSrc, data.devOutSrc);
    }
 
    floatToColor<<<BLOCKS, THREADS>>>(data.devInSrc, data.devPixels);
-   tryKernelLaunch();
-   tryKernelSynchronize();
+   handleKernelLaunch();
+   handleKernelSynchronize();
 
    handleError(cudaMemcpy(data.output_pixels, data.devPixels, IMAGE_SIZE * sizeof(unsigned char), cudaMemcpyDeviceToHost));
 }
@@ -375,12 +375,12 @@ void display()
 
    //followPathSample<<<AGENTS_COUNT, fowThreads>>>(data.devAgents, data.devInSrc);
    followPathDensity<<<AGENTS_COUNT, FOW_THREADS>>>(data.devAgents, data.devInSrc);
-   tryKernelLaunch();
-   tryKernelSynchronize();
+   handleKernelLaunch();
+   handleKernelSynchronize();
 
    updateAgents << <(AGENTS_COUNT + 4) / 4, 4>> > (data.devAgents, data.devState);
-   tryKernelLaunch();
-   tryKernelSynchronize();
+   handleKernelLaunch();
+   handleKernelSynchronize();
 
    glFinish();
 }
@@ -395,7 +395,7 @@ void exitingFunction()
 {
    freeMemory();
    //tryCudaLastError();
-   tryCudaReset();
+   handleCudaReset();
    std::cout << "Done!";
 }
 
@@ -429,6 +429,22 @@ int main(int argc, char** argv)
    return 0;
 }
 
+__device__ float fisqrt(const float number)
+{
+   long i;
+   float x2, y;
+   const float threehalfs = 1.5F;
+
+   x2 = number * 0.5F;
+   y = number;
+   i = *(long*)&y;                       // evil floating point bit level hacking
+   i = 0x5f3759df - (i >> 1);               // what the fuck? 
+   y = *(float*)&i;
+   y = y * (threehalfs - (x2 * y * y));   // 1st iteration
+   //	y  = y * ( threehalfs - ( x2 * y * y ) );   // 2nd iteration, this can be removed
+
+   return y;
+}
 
 //__global__ void followPathSample(Agent* agents, const float* canvas)
 //{

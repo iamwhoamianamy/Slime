@@ -3,6 +3,10 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 
+#define USE_FISQRT
+
+__device__ float fisqrt(const float number);
+
 __device__ struct Vec
 {
    float x;
@@ -93,40 +97,95 @@ __device__ struct Vec
       return this->x * this->x + this->y * this->y;
    }
 
+   __device__ float getLength() const
+   {
+      return sqrtf(this->x * this->x + this->y * this->y);
+   }
+
    __device__  Vec normalized() const
    {
-      Vec res;
-      float length = sqrtf(lengthSquared());
 
-      if(length != 0)
+#if defined(USE_FISQRT)
+
+      Vec res;
+      float length_squared = lengthSquared();
+
+      if(length_squared != 0)
+      {
+         float inv_sqrt_length = fisqrt(length_squared);
+         res.x = this->x * inv_sqrt_length;
+         res.y = this->y * inv_sqrt_length;
+      }
+
+      return res;
+
+#else
+
+      Vec res;
+      float length = getLength();
+
+      if(length)
       {
          res.x = this->x / length;
          res.y = this->y / length;
       }
 
       return res;
+
+#endif
+      
    }
 
    __device__ void normalize()
    {
-      float length = sqrtf(lengthSquared());
+
+#if defined(USE_FISQRT)
+
+      float length_squared = lengthSquared();
+      if(length_squared)
+      {
+         float inv_sqrt_length = fisqrt(length_squared);
+         this->x *= inv_sqrt_length;
+         this->y *= inv_sqrt_length;
+      }
+
+#else
+
+      float length = getLength();
 
       if(length != 0)
       {
          this->x /= length;
          this->y /= length;
       }
-   }
 
+#endif
+
+   }
    __device__ void limit(const float limitLength)
    {
-      float length = sqrtf(lengthSquared());
+#if defined(USE_FISQRT)
+
+      float length_squared = lengthSquared();
+      if(length_squared && length_squared > limitLength * limitLength)
+      {
+         float inv_sqrt_length = fisqrt(length_squared) * limitLength;
+         this->x *= inv_sqrt_length;
+         this->y *= inv_sqrt_length;
+      }
+
+#else
+
+      float length = getLength();
 
       if(length != 0 && length > limitLength)
       {
          this->x = this->x / length * limitLength;
          this->y = this->y / length * limitLength;
       }
+
+#endif
+
    }
 
    __device__ static Vec direction(const Vec& from, const Vec& to)

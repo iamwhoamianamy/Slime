@@ -43,7 +43,7 @@ cudaError_t handleError(cudaError_t functReturn, handler (*errorHandler)() = doN
    }
 }
 
-void tryCudaMalloc(void** devPtr, const size_t size, handler(*errorHandler)() = doNothing)
+void handleCudaMalloc(void** devPtr, const size_t size, handler(*errorHandler)() = doNothing)
 {
    cudaError_t cudaStatus = cudaMalloc(devPtr, size);
 
@@ -55,7 +55,7 @@ void tryCudaMalloc(void** devPtr, const size_t size, handler(*errorHandler)() = 
    }
 }
 
-void tryCudaLastError()
+void handleCudaLastError()
 {
    cudaError_t cudaStatus = cudaGetLastError();
 
@@ -67,7 +67,7 @@ void tryCudaLastError()
    }
 }
 
-void tryCudaReset()
+void handleCudaReset()
 {
    cudaError_t cudaStatus = cudaDeviceReset();
 
@@ -83,7 +83,7 @@ void tryCudaReset()
    }
 }
 
-void tryKernelLaunch(handler(*errorHandler)() = doNothing)
+void handleKernelLaunch(handler(*errorHandler)() = doNothing)
 {
    cudaError_t cudaStatus = cudaGetLastError();
 
@@ -95,7 +95,7 @@ void tryKernelLaunch(handler(*errorHandler)() = doNothing)
    }
 }
 
-void tryKernelSynchronize(handler(*errorHandler)() = doNothing)
+void handleKernelSynchronize(handler(*errorHandler)() = doNothing)
 {
    cudaError_t cudaStatus = cudaDeviceSynchronize();
 
