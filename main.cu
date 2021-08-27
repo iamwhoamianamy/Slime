@@ -19,7 +19,7 @@ const int DIM_Y = 1016;
 const int GRID_SIZE = DIM_X * DIM_Y;
 const int IMAGE_SIZE = DIM_X * DIM_Y * 3;
 
-const int FPS = 30;
+const int FPS = 60;
 
 __device__ const float SPEED = 0.25f;
 __device__ const float MAX_TEMP = 1.0f;
@@ -27,9 +27,9 @@ __device__ const float MIN_TEMP = 0.0001f;
 
 __device__ const float RAD = 0.01745329251f;
 __device__ const float TRACE_LENGTH = 0.95f;
-__device__ const float MAX_VELOCITY = 1.5f;
-__device__ const float WANDERING_STRENGTH = 0.1f;
-__device__ const float STEERING_FORCE = 20.25f;
+__device__ const float MAX_VELOCITY = 2.5f;
+__device__ const float WANDERING_STRENGTH = 0.3f;
+__device__ const float STEERING_FORCE = 1.25f;
 __device__ const float PERCEPTION_LENGTH = 6;
 
 __device__ const int FOW_WIDTH = 7;
@@ -54,6 +54,33 @@ struct DataBlock
 };
 
 DataBlock data;
+
+//struct Lock
+//{
+//   int* mutex;
+//
+//   Lock()
+//   {
+//      int state = 0;
+//      handleCudaMalloc((void**)&mutex, sizeof(int));
+//      handleError(cudaMemcpy(mutex, &state, sizeof(int), cudaMemcpyHostToDevice));
+//   }
+//
+//   ~Lock()
+//   {
+//      cudaFree(mutex);
+//   }
+//
+//   __device__ void lock()
+//   {
+//      while(atomicCAS(mutex, 0, 1));
+//   }
+//
+//   __device__ void unlock()
+//   {
+//      atomicExch(mutex, 0);
+//   }
+//};
 
 __global__ void initRandomGenerator(curandState* state)
 {
@@ -149,9 +176,9 @@ __global__ void followPathDensity(Agent* agents, const float* canvas)
       //target /= fowWidth * fowWidth;
 
       //if(Vec::distanceSquared(center, target))
-      if(target.lengthSquared() > 1e-5)
+      if(target.lengthSquared() > 1e-7)
       {
-         agents[agent_index].steer(center + target.normalized(), STEERING_FORCE);
+         agents[agent_index].steer(center + target, STEERING_FORCE);
          //agents[agent_index].vel.limit(maxVelocity);
       }
    }
@@ -407,10 +434,12 @@ __device__ float uintTo01(const unsigned int i)
 
 int main(int argc, char** argv)
 {
+
    glutInit(&argc, argv);
    glutInitDisplayMode(GLUT_RGB);
    glutInitWindowSize(DIM_X, DIM_Y);
-   glutCreateWindow("Нагрев");
+   glutCreateWindow("Слизни");
+   //std::cin.get();
 
    glShadeModel(GL_FLAT);
    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -424,6 +453,8 @@ int main(int argc, char** argv)
    glutTimerFunc(0, onTimer, 0);
 
    initMemory();
+
+
    glutMainLoop();
 
    return 0;

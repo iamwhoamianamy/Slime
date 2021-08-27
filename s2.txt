@@ -1,4 +1,4 @@
-const int AGENTS_COUNT = 200000;
+const int AGENTS_COUNT = 800000;
 const int DIM_X = 1920;
 const int DIM_Y = 1016;
 
@@ -15,9 +15,7 @@ __device__ const float RAD = 0.01745329251f;
 __device__ const float TRACE_LENGTH = 0.95f;
 __device__ const float MAX_VELOCITY = 1.5f;
 __device__ const float WANDERING_STRENGTH = 0.1f;
-__device__ const float STEERING_FORCE = 100.75f;
-__device__ const float PERCEPTION_LENGTH = 9;
+__device__ const float STEERING_FORCE = 20.25f;
+__device__ const float PERCEPTION_LENGTH = 6;
 
-__device__ const int FOW_WIDTH = 11;
-
-const int THREADS_PER_BLOCK = 16;
+__device__ const int FOW_WIDTH = 7;
