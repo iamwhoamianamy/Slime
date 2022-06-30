@@ -234,9 +234,18 @@ public:
 
    __device__ void updatePosition(const float width, const float height)
    {
+      const float newX = pos.x + vel.x;
+      const float newY = pos.y + vel.y;
+
+      const bool checkX = newX < 0 || newX >= width;
+      const bool checkY = newY < 0 || newY >= height;
+
+      vel.x *= -1 * checkX + 1 * !checkX;
+      vel.y *= -1 * checkY + 1 * !checkY;
+
       pos += vel;
-      
-      if(pos.x < 0)
+
+      /*if(pos.x < 0)
       {
          vel.x *= -1;
          pos.x = 0;
@@ -262,7 +271,7 @@ public:
             vel.y *= -1;
             pos.y = height - 1;
          }
-      }
+      }*/
    }
 
    __device__ void steer(const Vec& target, const float force)

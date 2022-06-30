@@ -19,27 +19,21 @@ const int DIM_Y = 1016;
 const int GRID_SIZE = DIM_X * DIM_Y;
 const int IMAGE_SIZE = DIM_X * DIM_Y * 3;
 
-const int FPS = 60;
+const int FPS = 45;
 
-__device__ const float SPEED = 0.25f;
+__device__ const float SPEED = 0.3f;
 __device__ const float MAX_TEMP = 1.0f;
 __device__ const float MIN_TEMP = 0.0001f;
 
 __device__ const float RAD = 0.01745329251f;
 __device__ const float TRACE_LENGTH = 0.95f;
 __device__ const float MAX_VELOCITY = 2.5f;
-__device__ const float WANDERING_STRENGTH = 0.3f;
-__device__ const float STEERING_FORCE = 1.25f;
+__device__ const float WANDERING_STRENGTH = 0.6f;
+__device__ const float STEERING_FORCE = 3.00f;
 __device__ const float PERCEPTION_LENGTH = 6;
 
 __device__ const int FOW_WIDTH = 7;
 
-const int THREADS_PER_BLOCK = 16;
-
-const dim3 BLOCKS((DIM_X + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK,
-                  (DIM_Y + THREADS_PER_BLOCK - 1) / THREADS_PER_BLOCK);
-
-const dim3 THREADS(THREADS_PER_BLOCK, THREADS_PER_BLOCK);
 
 //float mouseX = DIM_X / 2, mouseY = DIM_Y / 2;
 
@@ -173,13 +167,9 @@ __global__ void followPathDensity(Agent* agents, const float* canvas)
 
    if(threadIdx.x == 0 && threadIdx.y == 0)
    {
-      //target /= fowWidth * fowWidth;
-
-      //if(Vec::distanceSquared(center, target))
       if(target.lengthSquared() > 1e-7)
       {
          agents[agent_index].steer(center + target, STEERING_FORCE);
-         //agents[agent_index].vel.limit(maxVelocity);
       }
    }
 }
@@ -199,20 +189,6 @@ __global__ void updateAgents(Agent* agents, curandState* state)
    state[offset] = localState;
 }
 
-__global__ void copyHeatersKernel(float* inPtr, const Agent* agents)
-{
-   const unsigned int offset = threadIdx.x + blockIdx.x * blockDim.x;
-
-   const unsigned int x = int(agents[offset].pos.x);
-   const unsigned int y = int(agents[offset].pos.y);
-
-   const unsigned int in_offset = x + y * DIM_X;
-
-   if(offset < AGENTS_COUNT)
-   {
-      inPtr[in_offset] = MAX_TEMP;
-   }
-}
 
 __global__ void clearArray(float* arr)
 {
@@ -232,11 +208,17 @@ __global__ void blendKernel(float* outSrc, const float* inSrc)
 
    if(offset < GRID_SIZE)
    {
-      int left = x > 0 ? offset - 1 : offset;
+      int left = (offset - 1) * (x > 0) + offset * (x <= 0);
+      int right = (offset + 1) * (x + 1 < DIM_X) + offset * (x + 1 >= DIM_X);
+
+      int bot = (offset - DIM_X) * (y > 0) + offset * (y <= 0);
+      int top = (offset + DIM_X) * (y + 1 < DIM_Y) + offset * (y + 1 >= DIM_Y);
+
+      /*int left = x > 0 ? offset - 1 : offset;
       int right = x + 1 < DIM_X ? offset + 1 : offset;
 
       int bot = y > 0 ? offset - DIM_X : offset;
-      int top = y + 1 < DIM_Y ? offset + DIM_X : offset;
+      int top = y + 1 < DIM_Y ? offset + DIM_X : offset;*/
 
       //outSrc[offset] = inSrc[offset] + SPEED * (inSrc[top] + inSrc[bot] + inSrc[left] + inSrc[right] - 4 * inSrc[offset]);
       outSrc[offset] = TRACE_LENGTH * (inSrc[top] + inSrc[bot] + inSrc[left] + inSrc[right]) / 4.0f;
@@ -283,26 +265,65 @@ void initMemory()
 
 const int REPEATS = 1;
 
+const int CHK_TPB = 32;
+const dim3 COPY_HEATERS_KERNEL_BLOCKS((AGENTS_COUNT + CHK_TPB - 1) / CHK_TPB);
+const dim3 COPY_HEATERS_KERNEL_THREADS(CHK_TPB);
+
+const int BK_TPB = 32;
+
+const dim3 BLEND_KERNEL_BLOCKS((DIM_X + BK_TPB - 1) / BK_TPB,
+                  (DIM_Y + BK_TPB - 1) / BK_TPB);
+
+const dim3 BLEND_KERNEL_THREADS(BK_TPB, BK_TPB);
+
+__global__ void copyHeatersKernel(float* inPtr, const Agent* agents);
+
 void formHeatmap()
 {
    for(size_t i = 0; i < REPEATS; i++)
    {
-      copyHeatersKernel<<<(AGENTS_COUNT + 15) / 16, 16 >>>(data.devInSrc, data.devAgents);
+      copyHeatersKernel<<<COPY_HEATERS_KERNEL_BLOCKS, COPY_HEATERS_KERNEL_THREADS >>>(data.devInSrc, data.devAgents);
       handleKernelLaunch();
       handleKernelSynchronize();
 
-      blendKernel<<<BLOCKS, THREADS >>>(data.devOutSrc, data.devInSrc);
+      blendKernel<<<BLEND_KERNEL_BLOCKS, BLEND_KERNEL_THREADS >>>(data.devOutSrc, data.devInSrc);
       handleKernelLaunch();
       handleKernelSynchronize();
 
       std::swap(data.devInSrc, data.devOutSrc);
    }
 
-   floatToColor<<<BLOCKS, THREADS>>>(data.devInSrc, data.devPixels);
+   floatToColor<<<BLEND_KERNEL_BLOCKS, BLEND_KERNEL_THREADS>>>(data.devInSrc, data.devPixels);
    handleKernelLaunch();
    handleKernelSynchronize();
 
    handleError(cudaMemcpy(data.output_pixels, data.devPixels, IMAGE_SIZE * sizeof(unsigned char), cudaMemcpyDeviceToHost));
+}
+
+__global__ void copyHeatersKernel(float* inPtr, const Agent* agents)
+{
+   __shared__ Vec agentPos[CHK_TPB];
+   const unsigned int offset = threadIdx.x + blockIdx.x * blockDim.x;
+
+   agentPos[threadIdx.x] = agents[threadIdx.x + blockIdx.x * blockDim.x].pos;
+
+   __syncthreads();
+
+   inPtr[(int)agentPos[threadIdx.x].x + (int)agentPos[threadIdx.x].y * DIM_X] = MAX_TEMP;
+
+   __syncthreads();
+
+      /*const unsigned int offset = threadIdx.x + blockIdx.x * blockDim.x;
+
+      const unsigned int x = int(agents[offset].pos.x);
+      const unsigned int y = int(agents[offset].pos.y);
+
+      const unsigned int in_offset = x + y * DIM_X;
+
+      if(offset < AGENTS_COUNT)
+      {
+         inPtr[in_offset] = MAX_TEMP;
+      }*/
 }
 
 handler freeMemory()
@@ -428,8 +449,7 @@ void exitingFunction()
 
 __device__ float uintTo01(const unsigned int i)
 {
-   float res = float(i) / UINT_MAX;
-   return res;
+   return float(i) / UINT_MAX;
 }
 
 int main(int argc, char** argv)
